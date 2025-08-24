@@ -1,0 +1,12 @@
+[package]
+name = "firelink"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# chrono = "0.4.41"
+petgraph = "0.8.2"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_yaml = "0.9.34"
+# sqlx = "0.8.6"
+# tokio = "1.47.1"
