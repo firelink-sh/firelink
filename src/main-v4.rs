@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use petgraph::algo::toposort;
 use petgraph::graph::{Graph, NodeIndex};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
@@ -142,7 +142,57 @@ struct Scheduler {
     dependents: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
 
+#[derive(Serialize, Clone)]
+struct JobNode {
+    name: String,
+    state: String, // Pending, Running, Success, Failed, Skipped
+    deps: Vec<String>,
+}
+
 impl Scheduler {
+    fn print_status(&self) {
+        println!("\n========= CURRENT DAG STATUS ==========");
+        for job in &self.jobs {
+            println!(
+                "  {} [{}] deps: {:?}",
+                job.cfg.name,
+                match job.state {
+                    JobState::Pending => "Pending",
+                    JobState::Running => "Running",
+                    JobState::Success => "Success",
+                    JobState::Failed => "Failed",
+                    JobState::Skipped => "Skipped",
+                },
+                job.cfg.depends_on.clone().unwrap_or_default()
+            );
+        }
+
+        println!("\n========= JOB QUEUE (ready-to-run) =========");
+        let ready_names = self.ready_queue();
+        for idx in ready_names {
+            println!("  {}", idx);
+        }
+
+        println!("====================================\n")
+    }
+
+    fn snapshot(&self) -> Vec<JobNode> {
+        self.jobs
+            .iter()
+            .map(|job| JobNode {
+                name: job.cfg.name.clone(),
+                state: match job.state {
+                    JobState::Pending => "Pending".into(),
+                    JobState::Running => "Running".into(),
+                    JobState::Success => "Success".into(),
+                    JobState::Failed => "Failed".into(),
+                    JobState::Skipped => "Skipped".into(),
+                },
+                deps: job.cfg.depends_on.clone().unwrap_or_default(), // list of dependency names
+            })
+            .collect()
+    }
+
     fn new(dag: SchedulerGraph) -> Self {
         let mut jobs = Vec::new();
         let mut idx_to_pos = HashMap::new();
@@ -235,6 +285,14 @@ impl Scheduler {
             .graph
             .node_indices()
             .filter(|&idx| self.jobs[self.pos(idx)].remaining_deps == 0)
+            .collect()
+    }
+
+    fn ready_queue(&self) -> Vec<String> {
+        self.jobs
+            .iter()
+            .filter(|job| job.state == JobState::Pending && job.remaining_deps == 0)
+            .map(|job| job.cfg.name.clone())
             .collect()
     }
 }
@@ -355,6 +413,7 @@ async fn main() -> Result<()> {
                     }
                 }
 
+                sched.print_status();
                 dispatch_ready(&mut sched, &mut ready, &tx_work, &tx_mgr).await?;
             }
             ManagerMsg::Skipped { .. } => {}
@@ -433,10 +492,4 @@ async fn run_job(job: &JobConfig) -> bool {
             }
         }
     }
-}
-
-fn num_cpus() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
 }

@@ -11,7 +11,7 @@ jobs:
   - name: job_B
     trigger:
       type: cron
-      schedule: "*/5 * * * * *"
+      schedule: "*/6 * * * * *"
     executor:
       type: python
       script: "scripts/job_b.py"

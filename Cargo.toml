@@ -11,6 +11,14 @@ path = "src/main-v1.rs"
 name = "v2"
 path = "src/main-v2.rs"
 
+[[bin]]
+name = "v3"
+path = "src/main-v3.rs"
+
+[[bin]]
+name = "v4"
+path = "src/main-v4.rs"
+
 [dependencies]
 anyhow = "1.0.99"
 futures = "0.3.31"
