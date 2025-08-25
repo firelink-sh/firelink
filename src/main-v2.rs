@@ -1,13 +1,13 @@
 use anyhow::{Context, Result, anyhow};
 use petgraph::algo::toposort;
 use petgraph::graph::{Graph, NodeIndex};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
 use tokio::process::Command;
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -361,7 +361,71 @@ async fn main() -> Result<()> {
         }
     }
 
+    // === 1. Create broadcast channel for WebSocket clients ===
+    let (tx, _rx) = broadcast::channel::<Vec<JobNode>>(1024);
+
+    // === 2. HTTP endpoint to fetch current DAG ===
+    let tx_clone = tx.clone();
+    let dag_route = warp::path("dag").map(move || {
+        // TODO: replace with actual scheduler snapshot
+        let jobs: Vec<JobNode> = vec![];
+        warp::reply::json(&jobs)
+    });
+
+    // === 3. WebSocket route ===
+    let ws_tx = tx.clone();
+    let ws_route = warp::path("ws")
+        .and(warp::ws())
+        .map(move |ws: warp::ws::Ws| {
+            let ws_tx = ws_tx.clone();
+            ws.on_upgrade(move |socket| async move {
+                let mut rx = ws_tx.subscribe();
+                let (mut ws_tx_sink, mut ws_rx_stream) = socket.split();
+
+                // Spawn a task to read messages from client (optional)
+                tokio::spawn(async move {
+                    while let Some(msg) = ws_rx_stream.next().await {
+                        match msg {
+                            Ok(msg) => println!("Client message: {:?}", msg),
+                            Err(e) => eprintln!("WebSocket error: {:?}", e),
+                        }
+                    }
+                });
+
+                // Send job updates to client
+                while let Ok(jobs) = rx.recv().await {
+                    let msg = serde_json::to_string(&jobs).unwrap();
+                    if ws_tx_sink.send(Message::text(msg)).await.is_err() {
+                        break; // client disconnected
+                    }
+                }
+            })
+        });
+
+    // === 4. Combine routes and serve ===
+    let routes = dag_route.or(ws_route);
+
+    println!("Server running on http://127.0.0.1:3030");
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+
     Ok(())
+}
+
+use futures::{SinkExt, StreamExt};
+use warp::Filter;
+use warp::ws::{Message, WebSocket};
+
+// === Define a JobNode to send to UI ===
+#[derive(Serialize, Clone)]
+struct JobNode {
+    name: String,
+    state: String, // Pending, Running, Success, Failed
+    deps: Vec<String>,
+}
+
+// Call this whenever a job state changes
+async fn broadcast_jobs(tx: &broadcast::Sender<Vec<JobNode>>, jobs_snapshot: Vec<JobNode>) {
+    let _ = tx.send(jobs_snapshot);
 }
 
 async fn dispatch_ready(

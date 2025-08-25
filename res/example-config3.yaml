@@ -41,10 +41,9 @@ jobs:
       script: "scripts/job_d.sh"
 
   - name: job_E
-    depends_on: [ job_C, job_D ]
     trigger:
-      type: after_deps
-      condition: any_success
+      type: cron
+      schedule: "*/7 * * * * *"
     executor:
       type: python
       script: "scripts/job_e.py"

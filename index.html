@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+</head>
+<body>
+<div id="cy" style="width: 100%; height: 100vh;"></div>
+<script>
+let cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: [],
+  style: [
+    { selector: 'node', style: { 'content': 'data(label)', 'background-color': 'gray' } },
+    { selector: 'edge', style: { 'width': 2, 'line-color': '#ccc' } }
+  ],
+  layout: { name: 'dagre' }
+});
+
+// WebSocket connection
+let ws = new WebSocket('ws://127.0.0.1:3030/ws');
+
+ws.onmessage = function(event) {
+  let jobs = JSON.parse(event.data);
+  let elements = [];
+
+  jobs.forEach(job => {
+    elements.push({ data: { id: job.name, label: job.name }, classes: job.state });
+    job.deps.forEach(dep => {
+      elements.push({ data: { source: dep, target: job.name } });
+    });
+  });
+
+  cy.elements().remove();
+  cy.add(elements);
+
+  // update node colors based on state
+  jobs.forEach(job => {
+    let color = { Pending: 'gray', Running: 'blue', Success: 'green', Failed: 'red', Skipped: 'orange' }[job.state];
+    cy.getElementById(job.name).style('background-color', color);
+  });
+
+  cy.layout({ name: 'dagre' }).run();
+};
+</script>
+</body>
+</html>
+
