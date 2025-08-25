@@ -393,10 +393,13 @@ async fn run_job(job: &JobConfig) -> bool {
             if let Some(envs) = env {
                 cmd.envs(envs.clone());
             }
-            println!("→ Running (bash) {} {:?}", job.name, cmd);
+            println!("\n============ RUNNING (bash) {}", job.name);
             match cmd.status().await {
                 Ok(status) => {
-                    println!("← Finished {} with status {}", job.name, status);
+                    println!(
+                        "\n============ FINISHED {} with status {}",
+                        job.name, status
+                    );
                     status.success()
                 }
                 Err(e) => {
@@ -414,10 +417,13 @@ async fn run_job(job: &JobConfig) -> bool {
             if let Some(envs) = env {
                 cmd.envs(envs.clone());
             }
-            println!("\n→ Running (python) {} {:?}", job.name, cmd);
+            println!("\n============ RUNNING (python) {}", job.name);
             match cmd.status().await {
                 Ok(status) => {
-                    println!("← Finished {} with status {}\n", job.name, status);
+                    println!(
+                        "\n============ FINISHED {} with status {}\n",
+                        job.name, status
+                    );
                     status.success()
                 }
                 Err(e) => {
