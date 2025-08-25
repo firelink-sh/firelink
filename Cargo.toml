@@ -3,10 +3,22 @@ name = "firelink"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "v1"
+path = "src/main-v1.rs"
+
+[[bin]]
+name = "v2"
+path = "src/main-v2.rs"
+
 [dependencies]
+anyhow = "1.0.99"
 # chrono = "0.4.41"
 petgraph = "0.8.2"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_yaml = "0.9.34"
+thiserror = "2.0.16"
+tokio = { version = "1.47.1", features = ["fs", "macros", "process", "rt-multi-thread", "sync", "time"] }
+tokio-cron-scheduler = "0.14.0"
 # sqlx = "0.8.6"
 # tokio = "1.47.1"

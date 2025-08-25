@@ -6,6 +6,7 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Executor {
     Bash {
         script: String,
@@ -108,6 +109,15 @@ impl Config {
 
         Ok(order.into_iter().map(|idx| graph[idx]).collect())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobState {
+    Pending,
+    Running,
+    Success,
+    Failed,
+    Skipped,
 }
 
 mod tests {

@@ -1,0 +1,32 @@
+jobs:
+  - name: job_A
+    trigger:
+      type: cron
+      schedule: "*/5 * * * * *"
+    executor:
+      type: bash
+      script: "scripts/job_a.sh"
+      args: [ "--verbose" ]
+
+  - name: job_B
+    trigger:
+      type: cron
+      schedule: "*/5 * * * * *"
+    executor:
+      type: python
+      script: "scripts/job_b.py"
+      args: [ "--input", "data.csv" ]
+      env:
+        LOGLEVEL: "DEBUG"
+
+  - name: job_C
+    depends_on: [ job_A, job_B ]
+    trigger:
+      type: after_deps
+      condition: all_success
+    executor:
+      type: python
+      script: "scripts/job_c.py"
+      env:
+        THIS_IS_AN_ENV_VAR: "cool"
+        FIRE: "link"
